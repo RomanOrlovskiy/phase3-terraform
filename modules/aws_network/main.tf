@@ -78,7 +78,7 @@ resource "aws_route_table" "external" {
   vpc_id = "${aws_vpc.main.id}"
 
   tags = {
-    Name        = "${var.name}-external-001"
+    Name        = "${var.name}-external"
     Environment = "${var.environment}"
   }
 }
