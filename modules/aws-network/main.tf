@@ -184,16 +184,6 @@ output "availability_zones" {
   value = ["${aws_subnet.external.*.availability_zone}"]
 }
 
-// The internal route table ID.
-output "internal_rtb_id" {
-  value = "${join(",", aws_route_table.internal.*.id)}"
-}
-
-// The external route table ID.
-output "external_rtb_id" {
-  value = "${aws_route_table.external.id}"
-}
-
 // The list of EIPs associated with the internal subnets.
 output "internal_nat_ips" {
   value = ["${aws_eip.nat.*.public_ip}"]
