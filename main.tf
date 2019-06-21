@@ -23,17 +23,17 @@ variable "region" {
 
 variable "vpc_cidr" {
   description = "the CIDR block to provision for the VPC, if set to something other than the default, both internal_subnets and external_subnets have to be defined as well"
-  default     = "10.30.0.0/16"
+  default     = "10.192.0.0/16"
 }
 
 variable "internal_subnets_cidr" {
   description = "a list of CIDRs for internal subnets in your VPC, must be set if the cidr variable is defined, needs to have as many elements as there are availability zones"
-  default     = ["10.30.0.0/19" ,"10.30.64.0/19"]
+  default     = ["10.192.20.0/24" ,"10.192.21.0/24"]
 }
 
 variable "external_subnets_cidr" {
   description = "a list of CIDRs for external subnets in your VPC, must be set if the cidr variable is defined, needs to have as many elements as there are availability zones"
-  default     = ["10.30.32.0/20", "10.30.96.0/20"]
+  default     = ["10.192.10.0/24", "10.192.11.0/24"]
 }
 
 variable "availability_zones" {
@@ -41,12 +41,41 @@ variable "availability_zones" {
   default     = ["us-west-2a", "us-west-2b"]
 }
 
-module "aws-network" {
-  source             = "./modules/aws-network"
+variable "database_name" {
+  description = "Database name"
+  default = "petclinc"
+}
+
+variable "database_user" {
+  description = "The database admin account username"
+  default = "petclinc_user"
+}
+variable "database_password" {
+  description = "The database admin account password"
+  default = "petclinc_password"
+}
+
+module "aws_network" {
+  source             = "./modules/aws_network"
   name               = "${var.name}"
   vpc_cidr               = "${var.vpc_cidr}"
   internal_subnets_cidr   = "${var.internal_subnets_cidr}"
   external_subnets_cidr   = "${var.external_subnets_cidr}"
   availability_zones = "${var.availability_zones}"
   environment        = "${var.environment}"
+}
+
+module "rds" {
+  source            = "./modules/rds"
+  environment       = "${var.environment}"
+  allocated_storage = "20"
+  db_name     = "${var.database_name}"
+  db_user = "${var.database_user}"
+  db_password = "${var.database_password}"
+  internal_subnets        = ["${module.aws_network.internal_subnets}"]
+  vpc            = "${module.aws_network.id}"
+  db_instance_class    = "db.t2.micro"
+  db_engine = "mysql"
+  db_engine_version = "5.7"
+  db_family = "mysql5.7"
 }
