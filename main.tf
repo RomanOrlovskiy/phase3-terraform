@@ -79,3 +79,18 @@ module "rds" {
   db_engine_version = "5.7"
   db_family         = "mysql5.7"
 }
+
+module "ecs_cluster" {
+  source = "./modules/ecs_cluster"
+  name = "${var.name}"
+  environment       = "${var.environment}"
+  instance_type = "t2.micro"
+  cluster_size_max = "4"
+  cluster_size = "2"
+  ssh_key_name = "WebServerPPK.pem"
+  internal_subnets = module.aws_network.internal_subnets
+  ecs_hosts_security_group = module.rds.db_access_sg_id
+  alert_phone_number = "+380635321012"
+  alert_email = "romanorlovskiy92@gmail.com"
+  
+}
