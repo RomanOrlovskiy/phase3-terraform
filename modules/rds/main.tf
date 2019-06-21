@@ -14,12 +14,12 @@ variable "db_password" {
 
 variable "allocated_storage" {
   description = "The size of the database (Gb)"
-  default = "20"
+  default     = "20"
 }
 
 variable "db_instance_class" {
   description = "The database instance type"
-  default = "db.t2.micro"
+  default     = "db.t2.micro"
 }
 
 variable "multi_az" {
@@ -48,19 +48,19 @@ variable "internal_subnets" {
   #type = "list"
 }
 
-resource "aws_db_instance" "mysql_rds" {    
-  name = "${var.db_name}"
-  allocated_storage = "${var.allocated_storage}"
-  instance_class = "${var.db_instance_class}"
-  engine = "${var.db_engine}"
-  engine_version = "${var.db_engine_version}"
-  multi_az = "${var.multi_az}"
-  username = "${var.db_user}"
-  password = "${var.db_password}"
-  db_subnet_group_name = "${aws_db_subnet_group.rds_subnet_group.id}"
-  parameter_group_name = "${aws_db_parameter_group.main.id}"  
-  vpc_security_group_ids = ["${aws_security_group.rds_sg.id}"]
-  skip_final_snapshot = true
+resource "aws_db_instance" "mysql_rds" {
+  name                            = "${var.db_name}"
+  allocated_storage               = "${var.allocated_storage}"
+  instance_class                  = "${var.db_instance_class}"
+  engine                          = "${var.db_engine}"
+  engine_version                  = "${var.db_engine_version}"
+  multi_az                        = "${var.multi_az}"
+  username                        = "${var.db_user}"
+  password                        = "${var.db_password}"
+  db_subnet_group_name            = "${aws_db_subnet_group.rds_subnet_group.id}"
+  parameter_group_name            = "${aws_db_parameter_group.main.id}"
+  vpc_security_group_ids          = ["${aws_security_group.rds_sg.id}"]
+  skip_final_snapshot             = true
   enabled_cloudwatch_logs_exports = ["error"]
 
   tags = {
@@ -81,34 +81,34 @@ resource "aws_security_group" "db_access_sg" {
 }
 
 resource "aws_security_group" "rds_sg" {
-    vpc_id = "${var.vpc}"
+  vpc_id = "${var.vpc}"
 
-    //allow traffic for TCP
-    ingress {
-        from_port = 3306
-        to_port   = 3306
-        protocol  = "tcp"
-        security_groups = ["${aws_security_group.db_access_sg.id}"]
-    }
-    
-    tags = {
-        Name = "${var.environment}-rds-sg"
-        Environment =  "${var.environment}"
-    }
+  //allow traffic for TCP
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = ["${aws_security_group.db_access_sg.id}"]
+  }
+
+  tags = {
+    Name        = "${var.environment}-rds-sg"
+    Environment = "${var.environment}"
+  }
 }
 
 resource "aws_db_parameter_group" "main" {
   family = "${var.db_family}"
-  
+
   parameter {
-      name = "log_output"
-      value = "FILE"
+    name  = "log_output"
+    value = "FILE"
   }
 }
 
 resource "aws_db_subnet_group" "rds_subnet_group" {
-  name = "${var.environment}-rds-subnet-group"
-  subnet_ids = ["${var.internal_subnets}"]
+  name       = "${var.environment}-rds-subnet-group"
+  subnet_ids = var.internal_subnets
 
   tags = {
     Environment = "${var.environment}"

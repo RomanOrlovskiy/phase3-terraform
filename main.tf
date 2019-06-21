@@ -1,15 +1,15 @@
 provider "aws" {
-  region  = "${var.region}"
+  region = "${var.region}"
 }
 
 variable "name" {
   description = "the name of your stack"
-  default = "phase3-tf-stack"
+  default     = "phase3-tf-stack"
 }
 
 variable "environment" {
   description = "the name of your environment"
-  default = "dev-west2"
+  default     = "dev-west2"
 }
 
 # variable "key_name" {
@@ -28,7 +28,7 @@ variable "vpc_cidr" {
 
 variable "internal_subnets_cidr" {
   description = "a list of CIDRs for internal subnets in your VPC, must be set if the cidr variable is defined, needs to have as many elements as there are availability zones"
-  default     = ["10.192.20.0/24" ,"10.192.21.0/24"]
+  default     = ["10.192.20.0/24", "10.192.21.0/24"]
 }
 
 variable "external_subnets_cidr" {
@@ -43,39 +43,39 @@ variable "availability_zones" {
 
 variable "database_name" {
   description = "Database name"
-  default = "petclinc"
+  default     = "petclinc"
 }
 
 variable "database_user" {
   description = "The database admin account username"
-  default = "petclinc_user"
+  default     = "petclinc_user"
 }
 variable "database_password" {
   description = "The database admin account password"
-  default = "petclinc_password"
+  default     = "petclinc_password"
 }
 
 module "aws_network" {
-  source             = "./modules/aws_network"
-  name               = "${var.name}"
-  vpc_cidr               = "${var.vpc_cidr}"
-  internal_subnets_cidr   = "${var.internal_subnets_cidr}"
-  external_subnets_cidr   = "${var.external_subnets_cidr}"
-  availability_zones = "${var.availability_zones}"
-  environment        = "${var.environment}"
+  source                = "./modules/aws_network"
+  name                  = "${var.name}"
+  vpc_cidr              = "${var.vpc_cidr}"
+  internal_subnets_cidr = "${var.internal_subnets_cidr}"
+  external_subnets_cidr = "${var.external_subnets_cidr}"
+  availability_zones    = "${var.availability_zones}"
+  environment           = "${var.environment}"
 }
 
 module "rds" {
   source            = "./modules/rds"
   environment       = "${var.environment}"
   allocated_storage = "20"
-  db_name     = "${var.database_name}"
-  db_user = "${var.database_user}"
-  db_password = "${var.database_password}"
-  internal_subnets        = ["${module.aws_network.internal_subnets}"]
-  vpc            = "${module.aws_network.id}"
-  db_instance_class    = "db.t2.micro"
-  db_engine = "mysql"
+  db_name           = "${var.database_name}"
+  db_user           = "${var.database_user}"
+  db_password       = "${var.database_password}"
+  internal_subnets  = module.aws_network.internal_subnets
+  vpc               = "${module.aws_network.id}"
+  db_instance_class = "db.t2.micro"
+  db_engine         = "mysql"
   db_engine_version = "5.7"
-  db_family = "mysql5.7"
+  db_family         = "mysql5.7"
 }
