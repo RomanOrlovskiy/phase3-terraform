@@ -41,6 +41,12 @@ variable "availability_zones" {
   default     = ["us-west-2a", "us-west-2b"]
 }
 
+variable "certificate_arn" {
+  description = "SSL Certificate"
+  default = "arn:aws:acm:us-west-2:414831080620:certificate/d01732be-d3f4-481f-b94a-a4eedb2af2eb"
+}
+
+
 variable "database_name" {
   description = "Database name"
   default     = "petclinc"
@@ -89,8 +95,10 @@ module "ecs_cluster" {
   cluster_size = "2"
   ssh_key_name = "WebServerPPK.pem"
   internal_subnets = module.aws_network.internal_subnets
+  external_subnets = module.aws_network.external_subnets
+  certificate_arn = "${var.certificate_arn}"
   ecs_hosts_security_group = module.rds.db_access_sg_id
   alert_phone_number = "+380635321012"
   alert_email = "romanorlovskiy92@gmail.com"
-  
+  vpc_id = "${module.aws_network.id}"
 }
