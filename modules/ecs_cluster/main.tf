@@ -93,9 +93,6 @@ resource "aws_launch_configuration" "launch_configuration" {
 #!/bin/bash
 echo "ECS_CLUSTER=${aws_ecs_cluster.main.name}" >> /etc/ecs/ecs.config
 
-#Install SSM agent to be able to execute scripts remotely via Run Command option
-yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
-
 #Install CloudWatch agent to store logs of all containers in one group
 yum install -y https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
 EOF
@@ -114,7 +111,7 @@ EOF
 
 #Create IAM Role for Autoscalling group
 resource "aws_iam_role" "asg_role" {
-  name = "${var.environment}-asg-role"
+  name = "${var.name}-asg-role"
   assume_role_policy = "${data.aws_iam_policy_document.asg_policy_document.json}"    
 }
 
@@ -130,7 +127,7 @@ data "aws_iam_policy_document" "asg_policy_document" {
 }
 
 resource "aws_iam_role_policy" "asg_permissions" {
-  name = "${var.environment}-asg-permissions"
+  name = "${var.name}-asg-permissions"
   role = "${aws_iam_role.asg_role.id}"
   policy = "${data.aws_iam_policy_document.asg_permissions_document.json}"
 }
@@ -193,7 +190,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
-  alarm_description = "Scale up if the memory reservation is above 90% for 10 minutes"
+  alarm_description = "Scale up if the memory reservation is above 70% for 5 minutes"
   alarm_actions     = ["${aws_autoscaling_policy.scale_up.arn}"]
 
   lifecycle {
@@ -216,7 +213,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_low" {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
-  alarm_description = "Scale down if the memory reservation is below 10% for 10 minutes"
+  alarm_description = "Scale down if the memory reservation is below 35% for 5 minutes"
   alarm_actions     = ["${aws_autoscaling_policy.scale_down.arn}"]
 
   lifecycle {
@@ -226,7 +223,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_low" {
 
 
 resource "aws_ecs_cluster" "main" {
-  name = "${var.environment}-ecs-cluster"
+  name = "${var.name}-ecs-cluster"
 
   tags = {
     Environment = "${var.environment}"
@@ -234,7 +231,7 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_iam_role" "ecs_instance_role" {
-  name = "${var.environment}-ecs-role"
+  name = "${var.name}-ecs-role"
   assume_role_policy = "${data.aws_iam_policy_document.ecs_policy_document.json}"    
 
   # aws_iam_instance_profile.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
@@ -257,7 +254,7 @@ data "aws_iam_policy_document" "ecs_policy_document" {
 
 # To attach an IAM Role to an EC2 Instance, you use an IAM Instance Profile
 resource "aws_iam_instance_profile" "ecs_instance_profile" {
-  name = "${var.environment}-ecs-instance-profile"
+  name = "${var.name}-ecs-instance-profile"
   role = "${aws_iam_role.ecs_instance_role.name}"
 
   # aws_launch_configuration.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
@@ -273,7 +270,7 @@ resource "aws_iam_instance_profile" "ecs_instance_profile" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role_policy" "ecs_cluster_permissions" {
-  name = "${var.environment}-ecs-cluster-permissions"
+  name = "${var.name}-ecs-cluster-permissions"
   role = "${aws_iam_role.ecs_instance_role.id}"
   policy = "${data.aws_iam_policy_document.ecs_cluster_permissions_document.json}"
   
@@ -312,3 +309,24 @@ resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment_cloudwat
   role = "${aws_iam_role.ecs_instance_role.name}"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
+
+output "ecs_cluster_id" {
+  value = "${aws_ecs_cluster.main.id}"
+}
+
+output "default_target_group_arn" {
+  value = "default_target_group_arn"
+}
+
+output "ecs_service_asg_role" {
+  value = "${aws_iam_role.asg_role.arn}"
+}
+
+output "jdbc_url" {
+  value = "jdbc_url"
+}
+
+output "https_listener" {
+  value = "https_listener"
+}
+

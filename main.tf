@@ -55,6 +55,15 @@ variable "database_password" {
   default     = "petclinc_password"
 }
 
+variable "container_image_name" {
+  default = "414831080620.dkr.ecr.us-west-2.amazonaws.com/petclinic"
+}
+
+variable "image_version" {
+  default = "latest"
+}
+
+
 module "aws_network" {
   source                = "./modules/aws_network"
   name                  = "${var.name}"
@@ -81,16 +90,39 @@ module "rds" {
 }
 
 module "ecs_cluster" {
-  source = "./modules/ecs_cluster"
-  name = "${var.name}"
-  environment       = "${var.environment}"
-  instance_type = "t2.micro"
-  cluster_size_max = "4"
-  cluster_size = "2"
-  ssh_key_name = "WebServerPPK.pem"
-  internal_subnets = module.aws_network.internal_subnets
+  source                   = "./modules/ecs_cluster"
+  name                     = "${var.name}"
+  environment              = "${var.environment}"
+  instance_type            = "t2.micro"
+  cluster_size_max         = "4"
+  cluster_size             = "2"
+  ssh_key_name             = "WebServer01.pem"
+  internal_subnets         = module.aws_network.internal_subnets
   ecs_hosts_security_group = module.rds.db_access_sg_id
-  alert_phone_number = "+380635321012"
-  alert_email = "romanorlovskiy92@gmail.com"
-  
+  alert_phone_number       = "+380635321012"
+  alert_email              = "romanorlovskiy92@gmail.com"
+
+}
+
+
+module "petclinic" {
+  source                    = "./modules/ecs_services/petclinic"
+  name                      = "${var.name}"
+  environment               = "${var.environment}"
+  image_version             = "${var.image_version}"
+  task_desired_count        = "2"
+  task_max_count            = "4"
+  path                      = "/"
+  https_listener            = "${module.ecs_cluster.https_listener}"
+  container_image_name      = "${var.container_image_name}"
+  ecs_cluster_id            = "${module.ecs_cluster.ecs_cluster_id}"
+  default_target_group_arn  = "${module.ecs_cluster.default_target_group_arn}"
+  container_name            = "petclinic"
+  task_definition_file_path = "petclinic_task_definition.tpl"
+  database_type             = "mysql"
+  jdbc_url                  = "${module.ecs_cluster.jdbc_url}"
+  db_username               = "${var.database_user}"
+  db_password               = "${var.database_password}"
+  aws_region                = "${var.region}"
+  ecs_service_asg_role      = "${module.ecs_cluster.ecs_service_asg_role}"
 }
