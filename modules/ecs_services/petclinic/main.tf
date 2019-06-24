@@ -8,7 +8,7 @@ variable "environment" {
 
 variable "image_version" {
   description = "Petclinic application version to be deployed"
-  default = "latest"
+  default     = "latest"
 }
 
 variable "container_hard_memory_limit" {
@@ -37,11 +37,15 @@ variable "container_image_name" {
   description = "Docker container image name"
 }
 
+variable "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+}
+
 variable "ecs_cluster_id" {
   description = "ARN of the ECS cluster"
 }
 
-variable "default_target_group_name" {
+variable "default_tg_arn_suffix" {
   description = "Name of the default target group for the Application load balancer"
 }
 
@@ -109,10 +113,10 @@ resource "aws_ecs_task_definition" "service_task" {
 data "template_file" "task" {
   template = "${file("${path.module}/${var.task_definition_file_path}")}"
   vars = {
-    CONTAINER_NAME = "${var.container_name}"
-    IMAGE = "${var.container_image_name}:${var.image_version}"
-    MEMORY = "${var.container_hard_memory_limit}"
-    CONTAINER_PORT = "${var.container_port}"
+    CONTAINER_NAME             = "${var.container_name}"
+    IMAGE                      = "${var.container_image_name}:${var.image_version}"
+    MEMORY                     = "${var.container_hard_memory_limit}"
+    CONTAINER_PORT             = "${var.container_port}"
     DATABASE                   = "${var.database_type}"
     SPRING_DATASOURCE_URL      = "${var.jdbc_url}"
     SPRING_DATASOURCE_USERNAME = "${var.db_username}"
@@ -194,7 +198,7 @@ data "aws_iam_policy_document" "ecs_service_permissions_document" {
 resource "aws_appautoscaling_target" "ecs_target" {
   max_capacity       = "${var.task_max_count}"
   min_capacity       = "${var.task_desired_count}"
-  resource_id        = "service/${var.ecs_cluster_id}/${aws_ecs_service.service.name}"
+  resource_id        = "service/${var.ecs_cluster_name}/${aws_ecs_service.service.name}"
   role_arn           = "${var.ecs_service_asg_role}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
@@ -214,7 +218,7 @@ resource "aws_appautoscaling_policy" "service_scale_up" {
     metric_aggregation_type = "Average"
 
     step_adjustment {
-      metric_interval_upper_bound = 0
+      metric_interval_lower_bound = 0
       scaling_adjustment          = 2
     }
   }
@@ -251,7 +255,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_up" {
   threshold           = "100"
 
   dimensions = {
-    TargetGroup = "${var.default_target_group_name}"
+    TargetGroup = "${var.default_tg_arn_suffix}"
   }
 
   alarm_description = "Alarm if request count is more than 100 requests per Target per one period"
@@ -270,7 +274,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_down" {
   threshold           = "10"
 
   dimensions = {
-    TargetGroup = "${var.default_target_group_name}"
+    TargetGroup = "${var.default_tg_arn_suffix}"
   }
 
   alarm_description = "Alarm if request count is less than 10 requests per Target per one period"

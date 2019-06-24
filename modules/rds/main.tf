@@ -58,7 +58,7 @@ variable "ecs_hosts_security_group_id" {
 
 
 resource "aws_db_instance" "mysql_rds" {
-  name                            = "${var.name}-rds-${var.db_name}"
+  name                            = "${var.db_name}"
   allocated_storage               = "${var.allocated_storage}"
   instance_class                  = "${var.db_instance_class}"
   engine                          = "${var.db_engine}"

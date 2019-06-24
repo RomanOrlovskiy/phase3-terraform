@@ -67,7 +67,7 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_iam_role" "ecs_instance_role" {
-  name = "${var.name}-ecs-role"
+  name               = "${var.name}-ecs-role"
   assume_role_policy = "${data.aws_iam_policy_document.ecs_policy_document.json}"
 
   # aws_iam_instance_profile.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
@@ -79,10 +79,10 @@ resource "aws_iam_role" "ecs_instance_role" {
 
 data "aws_iam_policy_document" "ecs_policy_document" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
-      type = "Service"
+      type        = "Service"
       identifiers = ["ec2.amazonaws.com"]
     }
   }
@@ -106,8 +106,8 @@ resource "aws_iam_instance_profile" "ecs_instance_profile" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role_policy" "ecs_cluster_permissions" {
-  name = "${var.name}-ecs-cluster-permissions"
-  role = "${aws_iam_role.ecs_instance_role.id}"
+  name   = "${var.name}-ecs-cluster-permissions"
+  role   = "${aws_iam_role.ecs_instance_role.id}"
   policy = "${data.aws_iam_policy_document.ecs_cluster_permissions_document.json}"
 
   lifecycle {
@@ -117,7 +117,7 @@ resource "aws_iam_role_policy" "ecs_cluster_permissions" {
 
 data "aws_iam_policy_document" "ecs_cluster_permissions_document" {
   statement {
-    effect = "Allow"
+    effect    = "Allow"
     resources = ["*"]
     actions = [
       "ecs:CreateCluster",
@@ -137,7 +137,7 @@ data "aws_iam_policy_document" "ecs_cluster_permissions_document" {
 
 #Attach AWS managed policy to the ECS role
 resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment_cloudwatch" {
-  role = "${aws_iam_role.ecs_instance_role.name}"
+  role       = "${aws_iam_role.ecs_instance_role.name}"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
@@ -196,19 +196,18 @@ resource "random_id" "target_group_sufix" {
 }
 
 resource "aws_lb_target_group" "alb_target_group" {
-  name        = "${var.name}-alb-target-group-${random_id.target_group_sufix.hex}"
-  port        = 80
-  protocol    = "HTTP"
-  vpc_id      = "${var.vpc_id}"
-  target_type = "ip"  
+  name     = "${var.name}-tg-${random_id.target_group_sufix.hex}"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = "${var.vpc_id}"
 
   health_check {
-    path = "/"    
-    healthy_threshold = 2
+    path                = "/"
+    healthy_threshold   = 2
     unhealthy_threshold = 3
-    timeout = 5
-    interval = 30
-    matcher = "200-299"
+    timeout             = 5
+    interval            = 30
+    matcher             = "200-299"
   }
 
   lifecycle {
@@ -246,7 +245,7 @@ resource "aws_autoscaling_group" "main" {
   max_size             = "${var.cluster_size_max}"
   desired_capacity     = "${var.cluster_size}"
 
-  
+
   tags = [
     {
       key                 = "Environment"
@@ -267,7 +266,7 @@ resource "aws_security_group" "ecs_sg" {
     from_port       = 0
     to_port         = 0
     protocol        = "-1"
-    security_groups = ["${aws_security_group.alb_sg.name}"]
+    security_groups = ["${aws_security_group.alb_sg.id}"]
   }
 
   egress {
@@ -283,11 +282,11 @@ resource "aws_security_group" "ecs_sg" {
 }
 
 resource "aws_launch_configuration" "launch_configuration" {
-  name          = "${var.name}-LC"
-  image_id      = "${data.aws_ami.ecs.id}"
-  instance_type = "${var.instance_type}"
-  key_name        = "${var.ssh_key_name}"
-  security_groups = ["${aws_security_group.ecs_sg.id}"]
+  image_id             = "${data.aws_ami.ecs.id}"
+  instance_type        = "${var.instance_type}"
+  key_name             = "${var.ssh_key_name}"
+  security_groups      = ["${aws_security_group.ecs_sg.id}"]
+  iam_instance_profile = "${aws_iam_instance_profile.ecs_instance_profile.name}"
 
   # A shell script that will execute when on each EC2 instance when it first boots to configure the ECS Agent to talk
   # to the right ECS cluster
@@ -358,17 +357,21 @@ resource "aws_sns_topic" "sms_alert" {
 
 resource "aws_sns_topic_subscription" "sms_alert_subscription" {
   topic_arn = "${aws_sns_topic.sms_alert.arn}"
-  protocol  = "sms"
-  endpoint  = "${var.alert_phone_number}"
+  protocol = "sms"
+  endpoint = "${var.alert_phone_number}"
 }
 
 resource "aws_autoscaling_policy" "scale_up" {
   name = "${var.name}-scale-up"
-  scaling_adjustment = 1
   adjustment_type = "ChangeInCapacity"
   policy_type = "StepScaling"
   metric_aggregation_type = "Average"
   autoscaling_group_name = "${aws_autoscaling_group.main.name}"
+
+  step_adjustment {
+    scaling_adjustment = 1
+    metric_interval_lower_bound = 0
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -377,11 +380,15 @@ resource "aws_autoscaling_policy" "scale_up" {
 
 resource "aws_autoscaling_policy" "scale_down" {
   name = "${var.name}-scale-down"
-  scaling_adjustment = -1
   adjustment_type = "ChangeInCapacity"
   policy_type = "StepScaling"
   metric_aggregation_type = "Average"
   autoscaling_group_name = "${aws_autoscaling_group.main.name}"
+
+  step_adjustment {
+    scaling_adjustment = -1
+    metric_interval_lower_bound = 0
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -395,7 +402,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
   metric_name = "MemoryReservation"
   namespace = "AWS/ECS"
   period = "300"
-  statistic = "Avarage"
+  statistic = "Average"
   threshold = "70"
 
   dimensions = {
@@ -418,7 +425,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_low" {
   metric_name = "MemoryReservation"
   namespace = "AWS/ECS"
   period = "300"
-  statistic = "Avarage"
+  statistic = "Average"
   threshold = "35"
 
   dimensions = {
@@ -450,8 +457,12 @@ output "default_target_group_arn" {
   value = "${aws_lb_target_group.alb_target_group.arn}"
 }
 
-output "default_target_group_name" {
-  value = "${aws_lb_target_group.alb_target_group.name}"
+output "default_tg_arn_suffix" {
+  value = "${aws_lb_target_group.alb_target_group.arn_suffix}"
+}
+
+output "ecs_cluster_name" {
+  value = "${aws_ecs_cluster.main.name}"
 }
 
 output "ecs_cluster_id" {
