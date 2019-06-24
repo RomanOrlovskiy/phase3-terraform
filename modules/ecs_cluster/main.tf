@@ -437,14 +437,22 @@ output "alb_url" {
   value = "${aws_lb.alb.dns_name}"
 }
 
-output "alb_https_listener" {
+output "https_listener" {
   value = "${aws_alb_listener.https_listener.id}"
 }
 
-output "default_target_group" {
-  value = "${aws_alb_target_group.alb_target_group.id}"
+output "default_target_group_arn" {
+  value = "${aws_alb_target_group.alb_target_group.arn}"
 }
 
 output "default_target_group_name" {
   value = "${aws_alb_target_group.alb_target_group.name}"
+}
+
+output "ecs_cluster_id" {
+  value = "${aws_ecs_cluster.main.id}"
+}
+
+output "ecs_service_asg_role" {
+  value = "${aws_iam_role.asg_role.arn}"
 }

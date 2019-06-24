@@ -129,7 +129,7 @@ module "petclinic" {
   container_name            = "petclinic"
   task_definition_file_path = "petclinic_task_definition.tpl"
   database_type             = "mysql"
-  jdbc_url                  = "${module.ecs_cluster.jdbc_url}"
+  jdbc_url                  = "${module.rds.jdbc_url}"
   db_username               = "${var.database_user}"
   db_password               = "${var.database_password}"
   aws_region                = "${var.region}"

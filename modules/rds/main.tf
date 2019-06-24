@@ -115,9 +115,6 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
   }
 }
 
-output "jdbc_url" {
-  value = "${aws_db_instance.mysql_rds.address}"
-}
 
 output "db_access_sg_id" {
   value = "${aws_security_group.db_access_sg.id}"
@@ -131,10 +128,11 @@ output "db_password" {
   value = "${var.db_password}"
 }
 
-output "addr" {
-  value = "${aws_db_instance.mysql_rds.engine}://${aws_db_instance.mysql_rds.username}:${aws_db_instance.mysql_rds.password}@${aws_db_instance.mysql_rds.endpoint}"
-}
+#Compose JDBC URL to pass to the containers
+# output "jdbc_url" {
+#   value = "${join("", ["jdbc:${aws_db_instance.mysql_rds.engine}://", aws_db_instance.mysql_rds.address, ":", aws_db_instance.mysql_rds.port, "/", aws_db_instance.mysql_rds.name ])}"
+# }
 
-output "url" {
-  value = "${aws_db_instance.mysql_rds.engine}://${aws_db_instance.mysql_rds.username}:${aws_db_instance.mysql_rds.password}@${aws_db_instance.mysql_rds.endpoint}/${aws_db_instance.mysql_rds.name}"
+output "jdbc_url" {
+  value = "jdbc:${aws_db_instance.mysql_rds.engine}://${aws_db_instance.mysql_rds.endpoint}/${aws_db_instance.mysql_rds.name}"
 }
