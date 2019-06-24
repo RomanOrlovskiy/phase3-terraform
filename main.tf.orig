@@ -96,6 +96,22 @@ module "rds" {
 }
 
 module "ecs_cluster" {
+<<<<<<< HEAD
+  source = "./modules/ecs_cluster"
+  name = "${var.name}"
+  environment       = "${var.environment}"
+  instance_type = "t2.micro"
+  cluster_size_max = "4"
+  cluster_size = "2"
+  ssh_key_name = "WebServerPPK.pem"
+  internal_subnets = module.aws_network.internal_subnets
+  external_subnets = module.aws_network.external_subnets
+  certificate_arn = "${var.certificate_arn}"
+  ecs_hosts_security_group = module.rds.db_access_sg_id
+  alert_phone_number = "+380635321012"
+  alert_email = "romanorlovskiy92@gmail.com"
+  vpc_id = "${module.aws_network.id}"
+=======
   source                   = "./modules/ecs_cluster"
   name                     = "${var.name}"
   environment              = "${var.environment}"
@@ -104,12 +120,9 @@ module "ecs_cluster" {
   cluster_size             = "2"
   ssh_key_name             = "WebServer01.pem"
   internal_subnets         = module.aws_network.internal_subnets
-  external_subnets = module.aws_network.external_subnets
-  certificate_arn = "${var.certificate_arn}"
   ecs_hosts_security_group = module.rds.db_access_sg_id
   alert_phone_number       = "+380635321012"
   alert_email              = "romanorlovskiy92@gmail.com"
-  vpc_id = "${module.aws_network.id}"
 
 }
 
@@ -134,4 +147,5 @@ module "petclinic" {
   db_password               = "${var.database_password}"
   aws_region                = "${var.region}"
   ecs_service_asg_role      = "${module.ecs_cluster.ecs_service_asg_role}"
+>>>>>>> 2afb5fb73f1c54f559cec09abc09aad9a365e163
 }

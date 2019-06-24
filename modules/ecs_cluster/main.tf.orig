@@ -12,17 +12,17 @@ variable "vpc_id" {
 
 variable "instance_type" {
   description = "Which instance type should we use to build the ECS cluster?"
-  default = "t2.micro"
+  default     = "t2.micro"
 }
 
 variable "cluster_size_max" {
   description = "Max amount of ECS hosts to deploy"
-  default = "4"
+  default     = "4"
 }
 
 variable "cluster_size" {
   description = "Amount of ECS hosts to deploy initialy"
-  default = "2"
+  default     = "2"
 }
 
 variable "ssh_key_name" {
@@ -55,9 +55,9 @@ variable "alert_email" {
 
 data "aws_ami" "ecs" {
   most_recent = true
-  owners = ["amazon"]
+  owners      = ["amazon"]
   filter {
-    name = "name"
+    name   = "name"
     values = ["amzn-ami-*-amazon-ecs-optimized"]
   }
 }
@@ -67,7 +67,7 @@ data "aws_ami" "ecs" {
 # }
 
 # resource "aws_sns_topic" "email_alert" {
-  
+
 # }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -230,8 +230,13 @@ EOF
 
 #Create IAM Role for Autoscalling group
 resource "aws_iam_role" "asg_role" {
+<<<<<<< HEAD
+  name = "${var.environment}-asg-role"
+  assume_role_policy = "${data.aws_iam_policy_document.asg_policy_document.json}"
+=======
   name = "${var.name}-asg-role"
   assume_role_policy = "${data.aws_iam_policy_document.asg_policy_document.json}"    
+>>>>>>> 2afb5fb73f1c54f559cec09abc09aad9a365e163
 }
 
 data "aws_iam_policy_document" "asg_policy_document" {
@@ -256,11 +261,11 @@ data "aws_iam_policy_document" "asg_permissions_document" {
     effect = "Allow"
     resources = ["*"]
     actions = [
-        "application-autoscaling:*",
-        "cloudwatch:DescribeAlarms",
-        "cloudwatch:PutMetricAlarm",
-        "ecs:DescribeServices",
-        "ecs:UpdateService"
+      "application-autoscaling:*",
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:PutMetricAlarm",
+      "ecs:DescribeServices",
+      "ecs:UpdateService"
     ]
   }
 }
@@ -270,9 +275,9 @@ data "aws_iam_policy_document" "asg_permissions_document" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 resource "aws_autoscaling_policy" "scale_up" {
-  name                   = "${var.name}-scale-up"
-  scaling_adjustment     = 1
-  adjustment_type        = "ChangeInCapacity"
+  name = "${var.name}-scale-up"
+  scaling_adjustment = 1
+  adjustment_type = "ChangeInCapacity"
   policy_type = "StepScaling"
   metric_aggregation_type = "Average"
   autoscaling_group_name = "${aws_autoscaling_group.main.name}"
@@ -283,9 +288,9 @@ resource "aws_autoscaling_policy" "scale_up" {
 }
 
 resource "aws_autoscaling_policy" "scale_down" {
-  name                   = "${var.name}-scale-down"
-  scaling_adjustment     = -1
-  adjustment_type        = "ChangeInCapacity"
+  name = "${var.name}-scale-down"
+  scaling_adjustment = -1
+  adjustment_type = "ChangeInCapacity"
   policy_type = "StepScaling"
   metric_aggregation_type = "Average"
   autoscaling_group_name = "${aws_autoscaling_group.main.name}"
@@ -296,21 +301,26 @@ resource "aws_autoscaling_policy" "scale_down" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "memory_high" {
-  alarm_name          = "${var.name}-memoryreservation-high"
+  alarm_name = "${var.name}-memoryreservation-high"
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "MemoryReservation"
-  namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Avarage"
-  threshold           = "70"
+  evaluation_periods = "1"
+  metric_name = "MemoryReservation"
+  namespace = "AWS/ECS"
+  period = "300"
+  statistic = "Avarage"
+  threshold = "70"
 
   dimensions = {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
+<<<<<<< HEAD
   alarm_description = "Scale up if the memory reservation is above 90% for 10 minutes"
+  alarm_actions = ["${aws_autoscaling_policy.scale_up.arn}"]
+=======
+  alarm_description = "Scale up if the memory reservation is above 70% for 5 minutes"
   alarm_actions     = ["${aws_autoscaling_policy.scale_up.arn}"]
+>>>>>>> 2afb5fb73f1c54f559cec09abc09aad9a365e163
 
   lifecycle {
     create_before_destroy = true
@@ -319,21 +329,26 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "memory_low" {
-  alarm_name          = "${var.name}-memoryreservation-low"
+  alarm_name = "${var.name}-memoryreservation-low"
   comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "MemoryReservation"
-  namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Avarage"
-  threshold           = "35"
+  evaluation_periods = "1"
+  metric_name = "MemoryReservation"
+  namespace = "AWS/ECS"
+  period = "300"
+  statistic = "Avarage"
+  threshold = "35"
 
   dimensions = {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
+<<<<<<< HEAD
+  alarm_description = "Scale down if the memory reservation is below 10% for 10 minutes"
+  alarm_actions = ["${aws_autoscaling_policy.scale_down.arn}"]
+=======
   alarm_description = "Scale down if the memory reservation is below 35% for 5 minutes"
   alarm_actions     = ["${aws_autoscaling_policy.scale_down.arn}"]
+>>>>>>> 2afb5fb73f1c54f559cec09abc09aad9a365e163
 
   lifecycle {
     create_before_destroy = true
@@ -350,8 +365,13 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_iam_role" "ecs_instance_role" {
+<<<<<<< HEAD
+  name = "${var.environment}-ecs-role"
+  assume_role_policy = "${data.aws_iam_policy_document.ecs_policy_document.json}"
+=======
   name = "${var.name}-ecs-role"
   assume_role_policy = "${data.aws_iam_policy_document.ecs_policy_document.json}"    
+>>>>>>> 2afb5fb73f1c54f559cec09abc09aad9a365e163
 
   # aws_iam_instance_profile.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
   # including this one, must also set the create_before_destroy flag to true, or you'll get a cyclic dependency error.
@@ -392,7 +412,7 @@ resource "aws_iam_role_policy" "ecs_cluster_permissions" {
   name = "${var.name}-ecs-cluster-permissions"
   role = "${aws_iam_role.ecs_instance_role.id}"
   policy = "${data.aws_iam_policy_document.ecs_cluster_permissions_document.json}"
-  
+
   lifecycle {
     create_before_destroy = true
   }
@@ -403,17 +423,17 @@ data "aws_iam_policy_document" "ecs_cluster_permissions_document" {
     effect = "Allow"
     resources = ["*"]
     actions = [
-        "ecs:CreateCluster",
-        "ecs:DeregisterContainerInstance",
-        "ecs:DiscoverPollEndpoint",
-        "ecs:Poll",
-        "ecs:RegisterContainerInstance",
-        "ecs:StartTelemetrySession",
-        "ecs:Submit*",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:BatchGetImage",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:GetAuthorizationToken"
+      "ecs:CreateCluster",
+      "ecs:DeregisterContainerInstance",
+      "ecs:DiscoverPollEndpoint",
+      "ecs:Poll",
+      "ecs:RegisterContainerInstance",
+      "ecs:StartTelemetrySession",
+      "ecs:Submit*",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetAuthorizationToken"
     ]
   }
 }
@@ -429,6 +449,7 @@ resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment_cloudwat
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
+<<<<<<< HEAD
 output "alb_fullname" {
   value = "${aws_lb.alb.name}"
 }
@@ -448,3 +469,25 @@ output "default_target_group" {
 output "default_target_group_name" {
   value = "${aws_alb_target_group.alb_target_group.name}"
 }
+=======
+output "ecs_cluster_id" {
+  value = "${aws_ecs_cluster.main.id}"
+}
+
+output "default_target_group_arn" {
+  value = "default_target_group_arn"
+}
+
+output "ecs_service_asg_role" {
+  value = "${aws_iam_role.asg_role.arn}"
+}
+
+output "jdbc_url" {
+  value = "jdbc_url"
+}
+
+output "https_listener" {
+  value = "https_listener"
+}
+
+>>>>>>> 2afb5fb73f1c54f559cec09abc09aad9a365e163
