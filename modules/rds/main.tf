@@ -1,3 +1,7 @@
+variable "name" {
+  description = "Stack name"
+}
+
 variable "environment" {
   description = "The environment"
 }
@@ -39,7 +43,7 @@ variable "db_family" {
   description = "DB family"
 }
 
-variable "vpc" {
+variable "vpc_id" {
   description = "Choose to which VPC the security groups should be deployed to"
 }
 
@@ -48,8 +52,13 @@ variable "internal_subnets" {
   #type = "list"
 }
 
+variable "ecs_hosts_security_group_id" {
+  description = "The EC2 security group that contains instances that need access to"
+}
+
+
 resource "aws_db_instance" "mysql_rds" {
-  name                            = "${var.db_name}"
+  name                            = "${var.name}-rds-${var.db_name}"
   allocated_storage               = "${var.allocated_storage}"
   instance_class                  = "${var.db_instance_class}"
   engine                          = "${var.db_engine}"
@@ -68,31 +77,19 @@ resource "aws_db_instance" "mysql_rds" {
   }
 }
 
-/* Security Group for resources that want to access the Database */
-resource "aws_security_group" "db_access_sg" {
-  vpc_id      = "${var.vpc}"
-  name        = "${var.environment}-db-access-sg"
-  description = "Allow access to RDS"
-
-  tags = {
-    Name        = "${var.environment}-db-access-sg"
-    Environment = "${var.environment}"
-  }
-}
-
+#Allow traffic for TCP from ECS hosts SG
 resource "aws_security_group" "rds_sg" {
-  vpc_id = "${var.vpc}"
+  vpc_id = "${var.vpc_id}"
 
-  //allow traffic for TCP
   ingress {
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-    security_groups = ["${aws_security_group.db_access_sg.id}"]
+    security_groups = ["${var.ecs_hosts_security_group_id}"]
   }
 
   tags = {
-    Name        = "${var.environment}-rds-sg"
+    Name        = "${var.name}-rds-sg"
     Environment = "${var.environment}"
   }
 }
@@ -107,17 +104,12 @@ resource "aws_db_parameter_group" "main" {
 }
 
 resource "aws_db_subnet_group" "rds_subnet_group" {
-  name       = "${var.environment}-rds-subnet-group"
+  name       = "${var.name}-rds-subnet-group"
   subnet_ids = var.internal_subnets
 
   tags = {
     Environment = "${var.environment}"
   }
-}
-
-
-output "db_access_sg_id" {
-  value = "${aws_security_group.db_access_sg.id}"
 }
 
 output "db_user" {
@@ -127,11 +119,6 @@ output "db_user" {
 output "db_password" {
   value = "${var.db_password}"
 }
-
-#Compose JDBC URL to pass to the containers
-# output "jdbc_url" {
-#   value = "${join("", ["jdbc:${aws_db_instance.mysql_rds.engine}://", aws_db_instance.mysql_rds.address, ":", aws_db_instance.mysql_rds.port, "/", aws_db_instance.mysql_rds.name ])}"
-# }
 
 output "jdbc_url" {
   value = "jdbc:${aws_db_instance.mysql_rds.engine}://${aws_db_instance.mysql_rds.endpoint}/${aws_db_instance.mysql_rds.name}"

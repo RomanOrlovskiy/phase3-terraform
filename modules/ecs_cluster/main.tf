@@ -3,7 +3,7 @@ variable "name" {
 }
 
 variable "environment" {
-  description = "An environment name that will be prefixed to resource names"
+  description = "An environment name"
 }
 
 variable "vpc_id" {
@@ -12,17 +12,17 @@ variable "vpc_id" {
 
 variable "instance_type" {
   description = "Which instance type should we use to build the ECS cluster?"
-  default = "t2.micro"
+  default     = "t2.micro"
 }
 
 variable "cluster_size_max" {
   description = "Max amount of ECS hosts to deploy"
-  default = "4"
+  default     = "4"
 }
 
 variable "cluster_size" {
   description = "Amount of ECS hosts to deploy initialy"
-  default = "2"
+  default     = "2"
 }
 
 variable "ssh_key_name" {
@@ -41,10 +41,6 @@ variable "external_subnets" {
   description = "Subnets for ALB"
 }
 
-variable "ecs_hosts_security_group" {
-  description = "elect the Security Group to use for the ECS cluster hosts"
-}
-
 variable "alert_phone_number" {
   description = "Add this initial cell for SMS notification of EC2 instance scale up/down alerts"
 }
@@ -55,20 +51,96 @@ variable "alert_email" {
 
 data "aws_ami" "ecs" {
   most_recent = true
-  owners = ["amazon"]
+  owners      = ["amazon"]
   filter {
-    name = "name"
+    name   = "name"
     values = ["amzn-ami-*-amazon-ecs-optimized"]
   }
 }
 
-# variable "ecs_ami" {
-#   description = "ECS-Optimized AMI ID"
-# }
+resource "aws_ecs_cluster" "main" {
+  name = "${var.name}-ecs-cluster"
 
-# resource "aws_sns_topic" "email_alert" {
-  
-# }
+  tags = {
+    Environment = "${var.environment}"
+  }
+}
+
+resource "aws_iam_role" "ecs_instance_role" {
+  name = "${var.name}-ecs-role"
+  assume_role_policy = "${data.aws_iam_policy_document.ecs_policy_document.json}"
+
+  # aws_iam_instance_profile.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
+  # including this one, must also set the create_before_destroy flag to true, or you'll get a cyclic dependency error.
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+data "aws_iam_policy_document" "ecs_policy_document" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+# To attach an IAM Role to an EC2 Instance, you use an IAM Instance Profile
+resource "aws_iam_instance_profile" "ecs_instance_profile" {
+  name = "${var.name}-ecs-instance-profile"
+  role = "${aws_iam_role.ecs_instance_role.name}"
+
+  # aws_launch_configuration.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
+  # including this one, must also set the create_before_destroy flag to true, or you'll get a cyclic dependency error.
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ATTACH IAM POLICIES TO THE IAM ROLE
+# The IAM policy allows an ECS Agent running on each EC2 Instance to communicate with the ECS scheduler.
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role_policy" "ecs_cluster_permissions" {
+  name = "${var.name}-ecs-cluster-permissions"
+  role = "${aws_iam_role.ecs_instance_role.id}"
+  policy = "${data.aws_iam_policy_document.ecs_cluster_permissions_document.json}"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+data "aws_iam_policy_document" "ecs_cluster_permissions_document" {
+  statement {
+    effect = "Allow"
+    resources = ["*"]
+    actions = [
+      "ecs:CreateCluster",
+      "ecs:DeregisterContainerInstance",
+      "ecs:DiscoverPollEndpoint",
+      "ecs:Poll",
+      "ecs:RegisterContainerInstance",
+      "ecs:StartTelemetrySession",
+      "ecs:Submit*",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetAuthorizationToken"
+    ]
+  }
+}
+
+#Attach AWS managed policy to the ECS role
+resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment_cloudwatch" {
+  role = "${aws_iam_role.ecs_instance_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 #ALB
@@ -115,7 +187,7 @@ resource "aws_security_group" "alb_sg" {
   }
 
   tags = {
-    Name = "${var.name}-alb-sg"
+    Environment = "${var.environment}"
   }
 }
 
@@ -123,12 +195,21 @@ resource "random_id" "target_group_sufix" {
   byte_length = 2
 }
 
-resource "aws_alb_target_group" "alb_target_group" {
+resource "aws_lb_target_group" "alb_target_group" {
   name        = "${var.name}-alb-target-group-${random_id.target_group_sufix.hex}"
   port        = 80
   protocol    = "HTTP"
   vpc_id      = "${var.vpc_id}"
-  target_type = "ip"
+  target_type = "ip"  
+
+  health_check {
+    path = "/"    
+    healthy_threshold = 2
+    unhealthy_threshold = 3
+    timeout = 5
+    interval = 30
+    matcher = "200-299"
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -139,12 +220,16 @@ resource "aws_alb_listener" "https_listener" {
   load_balancer_arn = "${aws_lb.alb.arn}"
   port              = "443"
   protocol          = "HTTPS"
-  depends_on        = ["aws_alb_target_group.alb_target_group"]
+  depends_on        = ["aws_lb_target_group.alb_target_group"]
   certificate_arn   = "${var.certificate_arn}"
 
   default_action {
-    target_group_arn = "${aws_alb_target_group.alb_target_group.arn}"
+    target_group_arn = "${aws_lb_target_group.alb_target_group.arn}"
     type             = "forward"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -160,8 +245,8 @@ resource "aws_autoscaling_group" "main" {
   min_size             = "${var.cluster_size}"
   max_size             = "${var.cluster_size_max}"
   desired_capacity     = "${var.cluster_size}"
-  #suspended_processes
 
+  
   tags = [
     {
       key                 = "Environment"
@@ -193,7 +278,6 @@ resource "aws_security_group" "ecs_sg" {
   }
 
   tags = {
-    Name        = "${var.name}-ecs-sg"
     Environment = "${var.environment}"
   }
 }
@@ -202,9 +286,8 @@ resource "aws_launch_configuration" "launch_configuration" {
   name          = "${var.name}-LC"
   image_id      = "${data.aws_ami.ecs.id}"
   instance_type = "${var.instance_type}"
-  #iam_instance_profile        = "${var.enable_iam_setup ? element(concat(aws_iam_instance_profile.instance_profile.*.name, list("")), 0) : var.iam_instance_profile_name}"
   key_name        = "${var.ssh_key_name}"
-  security_groups = ["${var.ecs_hosts_security_group}"]
+  security_groups = ["${aws_security_group.ecs_sg.id}"]
 
   # A shell script that will execute when on each EC2 instance when it first boots to configure the ECS Agent to talk
   # to the right ECS cluster
@@ -231,7 +314,7 @@ EOF
 #Create IAM Role for Autoscalling group
 resource "aws_iam_role" "asg_role" {
   name = "${var.name}-asg-role"
-  assume_role_policy = "${data.aws_iam_policy_document.asg_policy_document.json}"    
+  assume_role_policy = "${data.aws_iam_policy_document.asg_policy_document.json}"
 }
 
 data "aws_iam_policy_document" "asg_policy_document" {
@@ -256,11 +339,11 @@ data "aws_iam_policy_document" "asg_permissions_document" {
     effect = "Allow"
     resources = ["*"]
     actions = [
-        "application-autoscaling:*",
-        "cloudwatch:DescribeAlarms",
-        "cloudwatch:PutMetricAlarm",
-        "ecs:DescribeServices",
-        "ecs:UpdateService"
+      "application-autoscaling:*",
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:PutMetricAlarm",
+      "ecs:DescribeServices",
+      "ecs:UpdateService"
     ]
   }
 }
@@ -269,10 +352,20 @@ data "aws_iam_policy_document" "asg_permissions_document" {
 #SCALING ASG AND CONTAINERS
 # ---------------------------------------------------------------------------------------------------------------------
 
+resource "aws_sns_topic" "sms_alert" {
+  name = "sms-topic"
+}
+
+resource "aws_sns_topic_subscription" "sms_alert_subscription" {
+  topic_arn = "${aws_sns_topic.sms_alert.arn}"
+  protocol  = "sms"
+  endpoint  = "${var.alert_phone_number}"
+}
+
 resource "aws_autoscaling_policy" "scale_up" {
-  name                   = "${var.name}-scale-up"
-  scaling_adjustment     = 1
-  adjustment_type        = "ChangeInCapacity"
+  name = "${var.name}-scale-up"
+  scaling_adjustment = 1
+  adjustment_type = "ChangeInCapacity"
   policy_type = "StepScaling"
   metric_aggregation_type = "Average"
   autoscaling_group_name = "${aws_autoscaling_group.main.name}"
@@ -283,9 +376,9 @@ resource "aws_autoscaling_policy" "scale_up" {
 }
 
 resource "aws_autoscaling_policy" "scale_down" {
-  name                   = "${var.name}-scale-down"
-  scaling_adjustment     = -1
-  adjustment_type        = "ChangeInCapacity"
+  name = "${var.name}-scale-down"
+  scaling_adjustment = -1
+  adjustment_type = "ChangeInCapacity"
   policy_type = "StepScaling"
   metric_aggregation_type = "Average"
   autoscaling_group_name = "${aws_autoscaling_group.main.name}"
@@ -296,21 +389,21 @@ resource "aws_autoscaling_policy" "scale_down" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "memory_high" {
-  alarm_name          = "${var.name}-memoryreservation-high"
+  alarm_name = "${var.name}-memoryreservation-high"
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "MemoryReservation"
-  namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Avarage"
-  threshold           = "70"
+  evaluation_periods = "1"
+  metric_name = "MemoryReservation"
+  namespace = "AWS/ECS"
+  period = "300"
+  statistic = "Avarage"
+  threshold = "70"
 
   dimensions = {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
-  alarm_description = "Scale up if the memory reservation is above 90% for 10 minutes"
-  alarm_actions     = ["${aws_autoscaling_policy.scale_up.arn}"]
+  alarm_description = "Scale up if the memory reservation is above 70% for 5 minutes"
+  alarm_actions = ["${aws_autoscaling_policy.scale_up.arn}", "${aws_sns_topic.sms_alert.arn}"]
 
   lifecycle {
     create_before_destroy = true
@@ -319,115 +412,27 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "memory_low" {
-  alarm_name          = "${var.name}-memoryreservation-low"
+  alarm_name = "${var.name}-memoryreservation-low"
   comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "MemoryReservation"
-  namespace           = "AWS/ECS"
-  period              = "300"
-  statistic           = "Avarage"
-  threshold           = "35"
+  evaluation_periods = "1"
+  metric_name = "MemoryReservation"
+  namespace = "AWS/ECS"
+  period = "300"
+  statistic = "Avarage"
+  threshold = "35"
 
   dimensions = {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
   alarm_description = "Scale down if the memory reservation is below 35% for 5 minutes"
-  alarm_actions     = ["${aws_autoscaling_policy.scale_down.arn}"]
+  alarm_actions = ["${aws_autoscaling_policy.scale_down.arn}", "${aws_sns_topic.sms_alert.arn}"]
 
   lifecycle {
     create_before_destroy = true
   }
 }
 
-
-resource "aws_ecs_cluster" "main" {
-  name = "${var.name}-ecs-cluster"
-
-  tags = {
-    Environment = "${var.environment}"
-  }
-}
-
-resource "aws_iam_role" "ecs_instance_role" {
-  name = "${var.name}-ecs-role"
-  assume_role_policy = "${data.aws_iam_policy_document.ecs_policy_document.json}"    
-
-  # aws_iam_instance_profile.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
-  # including this one, must also set the create_before_destroy flag to true, or you'll get a cyclic dependency error.
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-data "aws_iam_policy_document" "ecs_policy_document" {
-  statement {
-    effect = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-# To attach an IAM Role to an EC2 Instance, you use an IAM Instance Profile
-resource "aws_iam_instance_profile" "ecs_instance_profile" {
-  name = "${var.name}-ecs-instance-profile"
-  role = "${aws_iam_role.ecs_instance_role.name}"
-
-  # aws_launch_configuration.ecs_instance sets create_before_destroy to true, which means every resource it depends on,
-  # including this one, must also set the create_before_destroy flag to true, or you'll get a cyclic dependency error.
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# ---------------------------------------------------------------------------------------------------------------------
-# ATTACH IAM POLICIES TO THE IAM ROLE
-# The IAM policy allows an ECS Agent running on each EC2 Instance to communicate with the ECS scheduler.
-# ---------------------------------------------------------------------------------------------------------------------
-
-resource "aws_iam_role_policy" "ecs_cluster_permissions" {
-  name = "${var.name}-ecs-cluster-permissions"
-  role = "${aws_iam_role.ecs_instance_role.id}"
-  policy = "${data.aws_iam_policy_document.ecs_cluster_permissions_document.json}"
-  
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-data "aws_iam_policy_document" "ecs_cluster_permissions_document" {
-  statement {
-    effect = "Allow"
-    resources = ["*"]
-    actions = [
-        "ecs:CreateCluster",
-        "ecs:DeregisterContainerInstance",
-        "ecs:DiscoverPollEndpoint",
-        "ecs:Poll",
-        "ecs:RegisterContainerInstance",
-        "ecs:StartTelemetrySession",
-        "ecs:Submit*",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:BatchGetImage",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:GetAuthorizationToken"
-    ]
-  }
-}
-
-#Attach AWS managed policy to the ECS role
-resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment_ssm" {
-  role = "${aws_iam_role.ecs_instance_role.name}"
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment_cloudwatch" {
-  role = "${aws_iam_role.ecs_instance_role.name}"
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-}
 
 output "alb_fullname" {
   value = "${aws_lb.alb.name}"
@@ -442,11 +447,11 @@ output "https_listener" {
 }
 
 output "default_target_group_arn" {
-  value = "${aws_alb_target_group.alb_target_group.arn}"
+  value = "${aws_lb_target_group.alb_target_group.arn}"
 }
 
 output "default_target_group_name" {
-  value = "${aws_alb_target_group.alb_target_group.name}"
+  value = "${aws_lb_target_group.alb_target_group.name}"
 }
 
 output "ecs_cluster_id" {
@@ -455,4 +460,8 @@ output "ecs_cluster_id" {
 
 output "ecs_service_asg_role" {
   value = "${aws_iam_role.asg_role.arn}"
+}
+
+output "ecs_hosts_security_group_id" {
+  value = "${aws_security_group.ecs_sg.id}"
 }

@@ -4,7 +4,6 @@
 
 resource "aws_vpc" "main" {
   cidr_block           = "${var.vpc_cidr}"
-  enable_dns_support   = true
   enable_dns_hostnames = true
 
   tags = {
@@ -27,7 +26,6 @@ resource "aws_internet_gateway" "main" {
 }
 
 resource "aws_nat_gateway" "main" {
-  # Only create this if not using NAT instances.
   count         = "${length(var.internal_subnets_cidr)}"
   allocation_id = "${element(aws_eip.nat.*.id, count.index)}"
   subnet_id     = "${element(aws_subnet.external.*.id, count.index)}"
@@ -36,6 +34,7 @@ resource "aws_nat_gateway" "main" {
 
 resource "aws_eip" "nat" {
   count = "${length(var.internal_subnets_cidr)}"
+  depends_on    = ["aws_internet_gateway.main"]
 
   vpc = true
 }
@@ -100,7 +99,6 @@ resource "aws_route_table" "internal" {
 }
 
 resource "aws_route" "internal" {
-  # Create this only if using the NAT gateway service, vs. NAT instances.
   count                  = "${length(compact(var.internal_subnets_cidr))}"
   route_table_id         = "${element(aws_route_table.internal.*.id, count.index)}"
   destination_cidr_block = "0.0.0.0/0"

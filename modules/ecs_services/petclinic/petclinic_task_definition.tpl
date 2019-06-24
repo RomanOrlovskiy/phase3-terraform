@@ -1,10 +1,10 @@
 {
-    "name": "petclinic_service",
+    "name": ${CONTAINER_NAME},
     "essential": true,
-    "image": "tomcat",
-    "memory": 360,
+    "image": ${IMAGE},
+    "memory": ${MEMORY},
     "portMappings": [
-        { "containerPort": 8080 }
+        { "containerPort": ${CONTAINER_PORT} }
     ],
     "environment": [
       { "name": "DATABASE", "value": ${DATABASE} },

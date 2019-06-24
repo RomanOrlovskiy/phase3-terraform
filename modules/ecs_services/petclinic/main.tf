@@ -1,13 +1,22 @@
-variable "image_version" {
-  description = "Petclinic application version to be deployed"
-}
-
 variable "name" {
   description = "Infrastructure name"
 }
 
 variable "environment" {
   description = "Environment name"
+}
+
+variable "image_version" {
+  description = "Petclinic application version to be deployed"
+  default = "latest"
+}
+
+variable "container_hard_memory_limit" {
+  description = "Hard memory limit for the container"
+}
+
+variable "container_port" {
+  description = "Port to open on the container"
 }
 
 
@@ -32,8 +41,12 @@ variable "ecs_cluster_id" {
   description = "ARN of the ECS cluster"
 }
 
+variable "default_target_group_name" {
+  description = "Name of the default target group for the Application load balancer"
+}
+
 variable "default_target_group_arn" {
-  description = "ARN of the default target group for the Application load balancer "
+  description = "ARN of the default target group for the Application load balancer"
 }
 
 variable "container_name" {
@@ -77,14 +90,14 @@ resource "aws_ecs_service" "service" {
   name            = "${var.name}-service"
   depends_on      = ["aws_lb_listener_rule.rule"]
   cluster         = "${var.ecs_cluster_id}"
-  iam_role        = ""
+  iam_role        = "${aws_iam_role.ecs_service_role.arn}"
   desired_count   = "${var.task_desired_count}"
   task_definition = "${aws_ecs_task_definition.service_task.arn}"
 
   load_balancer {
     target_group_arn = "${var.default_target_group_arn}"
     container_name   = "${var.container_name}"
-    container_port   = 8080
+    container_port   = "${var.container_port}"
   }
 }
 
@@ -96,6 +109,10 @@ resource "aws_ecs_task_definition" "service_task" {
 data "template_file" "task" {
   template = "${file("${path.module}/${var.task_definition_file_path}")}"
   vars = {
+    CONTAINER_NAME = "${var.container_name}"
+    IMAGE = "${var.container_image_name}:${var.image_version}"
+    MEMORY = "${var.container_hard_memory_limit}"
+    CONTAINER_PORT = "${var.container_port}"
     DATABASE                   = "${var.database_type}"
     SPRING_DATASOURCE_URL      = "${var.jdbc_url}"
     SPRING_DATASOURCE_USERNAME = "${var.db_username}"
@@ -106,7 +123,7 @@ data "template_file" "task" {
 }
 
 resource "aws_cloudwatch_log_group" "group" {
-  name              = "${var.name}"
+  name              = "${var.name}-log-group"
   retention_in_days = 365
 }
 
@@ -234,7 +251,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_up" {
   threshold           = "100"
 
   dimensions = {
-    TargetGroup = "${var.default_target_group_arn}"
+    TargetGroup = "${var.default_target_group_name}"
   }
 
   alarm_description = "Alarm if request count is more than 100 requests per Target per one period"
@@ -244,8 +261,8 @@ resource "aws_cloudwatch_metric_alarm" "scale_up" {
 
 resource "aws_cloudwatch_metric_alarm" "scale_down" {
   alarm_name          = "${var.name}-scal-edown-on-10-requests"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
   metric_name         = "RequestCountPerTarget"
   namespace           = "AWS/ApplicationELB"
   period              = "300"
@@ -253,7 +270,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_down" {
   threshold           = "10"
 
   dimensions = {
-    TargetGroup = "${var.default_target_group_arn}"
+    TargetGroup = "${var.default_target_group_name}"
   }
 
   alarm_description = "Alarm if request count is less than 10 requests per Target per one period"
