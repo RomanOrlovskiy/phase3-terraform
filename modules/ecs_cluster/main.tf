@@ -205,6 +205,11 @@ resource "aws_autoscaling_group" "main" {
       key                 = "Environment"
       value               = "${var.environment}"
       propagate_at_launch = true
+    }, 
+    {
+      key                 = "Role"
+      value               = "ecs-host"
+      propagate_at_launch = true
     }
   ]
 

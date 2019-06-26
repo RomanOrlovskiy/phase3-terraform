@@ -49,7 +49,7 @@ variable "vpc_id" {
 
 variable "internal_subnets" {
   description = "Choose in which subnets this RDS instance should be deployed to"
-  #type = "list"
+  type = "list"
 }
 
 variable "ecs_hosts_security_group_id" {

@@ -35,10 +35,12 @@ variable "certificate_arn" {
 
 variable "internal_subnets" {
   description = "Choose which subnets this ECS cluster should be deployed to"
+  type = "list"
 }
 
 variable "external_subnets" {
   description = "Subnets for ALB"
+  type = "list"
 }
 
 variable "alert_phone_number" {
