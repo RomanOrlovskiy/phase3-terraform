@@ -246,7 +246,7 @@ resource "aws_launch_configuration" "launch_configuration" {
   key_name             = "${var.ssh_key_name}"
   security_groups      = ["${aws_security_group.ecs_sg.id}"]
   iam_instance_profile = "${aws_iam_instance_profile.ecs_instance_profile.name}"
-  user_data            = "${data.template_file.user_data.rendered}"
+  #user_data            = "${data.template_file.user_data.rendered}"  
 
   # Important note: whenever using a launch configuration with an auto scaling group, you must set
   # create_before_destroy = true. However, as soon as you set create_before_destroy = true in one resource, you must
@@ -267,6 +267,28 @@ data "template_file" "user_data" {
     cluster_name = "${aws_ecs_cluster.main.name}"
   }
 }
+
+
+#Provision ASG EC2 instances with Ansible
+# resource "null_resource" "ecs_hosts" {
+#   depends_on = ["aws_autoscaling_group.main"]
+  
+#   connection {
+#     user = "ec2-user"
+#     private_key = "${file("C:/Users/roman_orlovskyi/ssh/keys/WebServer01.pem")}"
+#   }
+#   provisioner "ansible" {
+#     plays {
+#       playbook = {
+#         roles_path = ["${path.module}/ansible-data/roles"]
+#         force_handlers = false
+#       }
+#       inventory_file = "C:/Users/roman_orlovskyi/Documents/projects/pre-prod/tf-phase3/modules/ecs_cluster/ansible-data/ec2.py"
+#       hosts = ["tag_Role_ecs-host"]
+#     }
+#   }
+# }
+
 
 #Create IAM Role for Autoscalling group
 resource "aws_iam_role" "asg_role" {
