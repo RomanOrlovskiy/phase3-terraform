@@ -1,5 +1,22 @@
-## Architecture overview
-![Screenshot](C:/Users/roman_orlovskyi/Downloads/phase3_image.png")
+## Notice
+
+This template was created for learning purposes only. Use with caution.
+
+## Description
+
+The template deploys a VPC, with a pair of public and private subnets spread
+across two Availabilty Zones. It deploys an Internet Gateway, with a default
+route on the public subnets. It deploys a pair of NAT Gateways (one in each AZ),
+and default routes for them in the private subnets.
+
+It then deploys a highly available ECS cluster using an AutoScaling Group, with
+ECS hosts distributed across multiple Availability Zones.
+
+Also it deploys RDS which will is used by containers in ECS service.
+
+The template includes scaling of EC2 instances in ASG based on MemoryReservation CloudWatch metric as well as scaling of containers in ECS based on RequestCountPerTarget metric. There is an SMS notification configured for ASG scaling and an email notification for containers scaling.
+
+Additionally, logs from the EC2 instances are sent to CloudWatch.
 
 ## Inputs
 
