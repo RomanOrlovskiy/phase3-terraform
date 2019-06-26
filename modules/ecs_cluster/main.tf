@@ -197,6 +197,11 @@ resource "aws_autoscaling_group" "main" {
 
   tags = [
     {
+      key                 = "Name"
+      value               = "${var.name}"
+      propagate_at_launch = true
+    }, 
+    {
       key                 = "Environment"
       value               = "${var.environment}"
       propagate_at_launch = true
@@ -236,16 +241,7 @@ resource "aws_launch_configuration" "launch_configuration" {
   key_name             = "${var.ssh_key_name}"
   security_groups      = ["${aws_security_group.ecs_sg.id}"]
   iam_instance_profile = "${aws_iam_instance_profile.ecs_instance_profile.name}"
-
-  # A shell script that will execute when on each EC2 instance when it first boots to configure the ECS Agent to talk
-  # to the right ECS cluster
-  user_data = <<EOF
-#!/bin/bash
-echo "ECS_CLUSTER=${aws_ecs_cluster.main.name}" >> /etc/ecs/ecs.config
-
-#Install CloudWatch agent to store logs of all containers in one group
-yum install -y https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
-EOF
+  user_data            = "${data.template_file.user_data.rendered}"
 
   # Important note: whenever using a launch configuration with an auto scaling group, you must set
   # create_before_destroy = true. However, as soon as you set create_before_destroy = true in one resource, you must
@@ -259,32 +255,40 @@ EOF
   }
 }
 
+data "template_file" "user_data" {
+  template = "${file("${path.module}/templates/user_data.sh")}"
+
+  vars = {
+    cluster_name = "${aws_ecs_cluster.main.name}"
+  }
+}
+
 #Create IAM Role for Autoscalling group
 resource "aws_iam_role" "asg_role" {
-  name = "${var.name}-asg-role"
+  name               = "${var.name}-asg-role"
   assume_role_policy = "${data.aws_iam_policy_document.asg_policy_document.json}"
 }
 
 data "aws_iam_policy_document" "asg_policy_document" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
-      type = "Service"
+      type        = "Service"
       identifiers = ["application-autoscaling.amazonaws.com"]
     }
   }
 }
 
 resource "aws_iam_role_policy" "asg_permissions" {
-  name = "${var.name}-asg-permissions"
-  role = "${aws_iam_role.asg_role.id}"
+  name   = "${var.name}-asg-permissions"
+  role   = "${aws_iam_role.asg_role.id}"
   policy = "${data.aws_iam_policy_document.asg_permissions_document.json}"
 }
 
 data "aws_iam_policy_document" "asg_permissions_document" {
   statement {
-    effect = "Allow"
+    effect    = "Allow"
     resources = ["*"]
     actions = [
       "application-autoscaling:*",
@@ -306,19 +310,19 @@ resource "aws_sns_topic" "sms_alert" {
 
 resource "aws_sns_topic_subscription" "sms_alert_subscription" {
   topic_arn = "${aws_sns_topic.sms_alert.arn}"
-  protocol = "sms"
-  endpoint = "${var.alert_phone_number}"
+  protocol  = "sms"
+  endpoint  = "${var.alert_phone_number}"
 }
 
 resource "aws_autoscaling_policy" "scale_up" {
-  name = "${var.name}-scale-up"
-  adjustment_type = "ChangeInCapacity"
-  policy_type = "StepScaling"
+  name                    = "${var.name}-scale-up"
+  adjustment_type         = "ChangeInCapacity"
+  policy_type             = "StepScaling"
   metric_aggregation_type = "Average"
-  autoscaling_group_name = "${aws_autoscaling_group.main.name}"
+  autoscaling_group_name  = "${aws_autoscaling_group.main.name}"
 
   step_adjustment {
-    scaling_adjustment = 1
+    scaling_adjustment          = 1
     metric_interval_lower_bound = 0
   }
 
@@ -328,14 +332,14 @@ resource "aws_autoscaling_policy" "scale_up" {
 }
 
 resource "aws_autoscaling_policy" "scale_down" {
-  name = "${var.name}-scale-down"
-  adjustment_type = "ChangeInCapacity"
-  policy_type = "StepScaling"
+  name                    = "${var.name}-scale-down"
+  adjustment_type         = "ChangeInCapacity"
+  policy_type             = "StepScaling"
   metric_aggregation_type = "Average"
-  autoscaling_group_name = "${aws_autoscaling_group.main.name}"
+  autoscaling_group_name  = "${aws_autoscaling_group.main.name}"
 
   step_adjustment {
-    scaling_adjustment = -1
+    scaling_adjustment          = -1
     metric_interval_lower_bound = 0
   }
 
@@ -345,21 +349,21 @@ resource "aws_autoscaling_policy" "scale_down" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "memory_high" {
-  alarm_name = "${var.name}-memoryreservation-high"
+  alarm_name          = "${var.name}-memoryreservation-high"
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods = "1"
-  metric_name = "MemoryReservation"
-  namespace = "AWS/ECS"
-  period = "300"
-  statistic = "Average"
-  threshold = "70"
+  evaluation_periods  = "1"
+  metric_name         = "MemoryReservation"
+  namespace           = "AWS/ECS"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "70"
 
   dimensions = {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
   alarm_description = "Scale up if the memory reservation is above 70% for 5 minutes"
-  alarm_actions = ["${aws_autoscaling_policy.scale_up.arn}", "${aws_sns_topic.sms_alert.arn}"]
+  alarm_actions     = ["${aws_autoscaling_policy.scale_up.arn}", "${aws_sns_topic.sms_alert.arn}"]
 
   lifecycle {
     create_before_destroy = true
@@ -368,21 +372,21 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "memory_low" {
-  alarm_name = "${var.name}-memoryreservation-low"
+  alarm_name          = "${var.name}-memoryreservation-low"
   comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods = "1"
-  metric_name = "MemoryReservation"
-  namespace = "AWS/ECS"
-  period = "300"
-  statistic = "Average"
-  threshold = "35"
+  evaluation_periods  = "1"
+  metric_name         = "MemoryReservation"
+  namespace           = "AWS/ECS"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "35"
 
   dimensions = {
     ClusterName = "${aws_ecs_cluster.main.name}"
   }
 
   alarm_description = "Scale down if the memory reservation is below 35% for 5 minutes"
-  alarm_actions = ["${aws_autoscaling_policy.scale_down.arn}", "${aws_sns_topic.sms_alert.arn}"]
+  alarm_actions     = ["${aws_autoscaling_policy.scale_down.arn}", "${aws_sns_topic.sms_alert.arn}"]
 
   lifecycle {
     create_before_destroy = true

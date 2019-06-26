@@ -2,6 +2,14 @@ provider "aws" {
   region = "${var.region}"
 }
 
+terraform {
+  backend "s3" {
+    bucket = "phase3-terraform-petclinic"
+    key    = "terraform.tfstate"
+    region = "us-west-2"
+  }
+}
+
 module "aws_network" {
   source                = "./modules/aws_network"
   name                  = "${var.name}"
