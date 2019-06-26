@@ -46,7 +46,7 @@ resource "aws_db_parameter_group" "main" {
 
 resource "aws_db_subnet_group" "rds_subnet_group" {
   name       = "${var.name}-rds-subnet-group"
-  subnet_ids = var.internal_subnets
+  subnet_ids = ["${var.internal_subnets}"]
 
   tags = {
     Environment = "${var.environment}"

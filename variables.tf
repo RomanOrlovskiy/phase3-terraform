@@ -93,12 +93,12 @@ variable "cluster_size" {
 
 variable "alert_phone_number" {
   description = "Phone number for SMS notifications on ECS hosts auto scalling"
-  default = "+380635321012"
+  default = ""
 }
 
 variable "alert_email" {
   description = "Email for notifications on container auto scaling"
-  default = "romanorlovskiy92@gmail.com"
+  default = ""
 }
 
 variable "db_allocated_storage" {

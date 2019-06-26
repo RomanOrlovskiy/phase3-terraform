@@ -5,7 +5,7 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket = "phase3-terraform-petclinic"
-    key    = "terraform.tfstate"
+    key    = "terraform11.tfstate"
     region = "us-west-2"
   }
 }
@@ -28,8 +28,8 @@ module "ecs_cluster" {
   cluster_size_max   = "${var.cluster_size_max}"
   cluster_size       = "${var.cluster_size}"
   ssh_key_name       = "${var.key_name}"
-  internal_subnets   = module.aws_network.internal_subnets
-  external_subnets   = module.aws_network.external_subnets
+  internal_subnets   = "${module.aws_network.internal_subnets}"
+  external_subnets   = "${module.aws_network.external_subnets}"
   certificate_arn    = "${var.certificate_arn}"
   alert_phone_number = "${var.alert_phone_number}"
   alert_email        = "${var.alert_email}"
@@ -44,8 +44,8 @@ module "rds" {
   db_name                     = "${var.database_name}"
   db_user                     = "${var.database_user}"
   db_password                 = "${var.database_password}"
-  internal_subnets            = module.aws_network.internal_subnets
-  ecs_hosts_security_group_id = module.ecs_cluster.ecs_hosts_security_group_id
+  internal_subnets            = "${module.aws_network.internal_subnets}"
+  ecs_hosts_security_group_id = "${module.ecs_cluster.ecs_hosts_security_group_id}"
   vpc_id                      = "${module.aws_network.vpc_id}"
   db_instance_class           = "${var.db_instance_class}"
   db_engine                   = "${var.db_engine}"

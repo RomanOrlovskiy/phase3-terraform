@@ -100,7 +100,7 @@ resource "aws_lb" "alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = ["${aws_security_group.alb_sg.id}"]
-  subnets            = var.external_subnets
+  subnets            = ["${var.external_subnets}"]
 
   tags = {
     Environment = "${var.environment}"
@@ -188,7 +188,7 @@ resource "aws_alb_listener" "https_listener" {
 resource "aws_autoscaling_group" "main" {
   depends_on           = ["aws_ecs_cluster.main"]
   name                 = "${var.name}-asg"
-  vpc_zone_identifier  = "${var.internal_subnets}"
+  vpc_zone_identifier  = ["${var.internal_subnets}"]
   launch_configuration = "${aws_launch_configuration.launch_configuration.name}"
   min_size             = "${var.cluster_size}"
   max_size             = "${var.cluster_size_max}"
