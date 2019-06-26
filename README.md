@@ -14,7 +14,7 @@ ECS hosts distributed across multiple Availability Zones.
 
 Also it deploys RDS which will is used by containers in ECS service.
 
-The template includes scaling of EC2 instances in ASG based on MemoryReservation CloudWatch metric as well as scaling of containers in ECS based on RequestCountPerTarget metric. There is an SMS notification configured for ASG scaling and an email notification for containers scaling.
+The template includes scaling of EC2 instances in ASG based on MemoryReservation CloudWatch metric as well as scaling of containers in ECS based on RequestCountPerTarget metric. There is an SMS notification configured for ASG scaling.
 
 Additionally, logs from the EC2 instances are sent to CloudWatch.
 
@@ -22,8 +22,8 @@ Additionally, logs from the EC2 instances are sent to CloudWatch.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|:----:|:-----:|:-----:|
-| alert\_email | Email for notifications on container auto scaling | string | `"romanorlovskiy92@gmail.com"` | no |
-| alert\_phone\_number | Phone number for SMS notifications on ECS hosts auto scalling | string | `"+380635321012"` | no |
+| alert\_email | Email for notifications on container auto scaling | string | `""` | no |
+| alert\_phone\_number | Phone number for SMS notifications on ECS hosts auto scalling | string | `""` | no |
 | availability\_zones | a comma-separated list of availability zones, defaults to all AZ of the region, if set to something other than the defaults, both internal_subnets and external_subnets have to be defined as well | list | `<list>` | no |
 | certificate\_arn | SSL Certificate | string | `"arn:aws:acm:us-west-2:414831080620:certificate/d01732be-d3f4-481f-b94a-a4eedb2af2eb"` | no |
 | cluster\_size | Min/default amount of instances in the ECS cluster | string | `"2"` | no |

@@ -46,16 +46,16 @@ variable "certificate_arn" {
 
 variable "database_name" {
   description = "Database name"
-  default     = "petclinc"
+  default     = "petclinic"
 }
 
 variable "database_user" {
   description = "The database admin account username"
-  default     = "petclinc_user"
+  default     = "petclinic_user"
 }
 variable "database_password" {
   description = "The database admin account password"
-  default     = "petclinc_password"
+  default     = "petclinic_password"
 }
 
 variable "container_image_name" {
@@ -74,4 +74,80 @@ variable "container_hard_memory_limit" {
 variable "container_port" {
   description = "Port to open on the container for LB connection"
   default     = "8080"
+}
+
+variable "instance_type" {
+  description = "ECS host instance type"
+  default = "t2.micro"
+}
+
+variable "cluster_size_max" {
+  description = "Max amount of instances in ECS cluster"
+  default = "4"  
+}
+
+variable "cluster_size" {
+  description = "Min/default amount of instances in the ECS cluster"
+  default = "2"  
+}
+
+variable "alert_phone_number" {
+  description = "Phone number for SMS notifications on ECS hosts auto scalling"
+  default = "+380635321012"
+}
+
+variable "alert_email" {
+  description = "Email for notifications on container auto scaling"
+  default = "romanorlovskiy92@gmail.com"
+}
+
+variable "db_allocated_storage" {
+  description = "Storage for RDS in GB"
+  default = "20"
+}
+
+variable "db_instance_class" {
+  description = "Instance class for RDS"
+  default = "db.t2.micro"
+}
+
+variable "db_engine" {
+  description = "RDS engine"
+  default = "mysql"  
+}
+
+variable "db_engine_version" {
+  description = "RDS engine version"
+  default = "5.7"
+}
+
+variable "db_family" {
+  description = "RDS family"
+  default = "mysql5.7"
+  
+}
+
+variable "service_task_desired_count" {
+  description = "Desired amount of tasks to run in ECS"
+  default = "2"
+}
+
+variable "service_task_max_count" {
+  description = "Max amount of tasks to run in ECS service"
+  default = "10"
+}
+
+variable "path_for_alb" {
+  description = "The path to register with the Application Load Balancer"
+  default = "/"
+}
+
+variable "container_name" {
+  description = "Name of the container for ECS service task"
+  default = "petclinic-service"
+}
+
+variable "task_definition_file_path" {
+  description = "Relative path to the task definition file"
+  default = "petclinic_task_definition.tpl"
 }
