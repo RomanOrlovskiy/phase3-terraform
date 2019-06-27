@@ -1,4 +1,7 @@
-- name: install awslogs
+- name: install log driver  
   yum:
-    name: awslogs
+    name: "{{log_driver}}"
     state: present
+
+- name: echo stuff
+  shell: echo "hello {{random_string}}"

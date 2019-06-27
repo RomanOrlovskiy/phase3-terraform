@@ -2,6 +2,11 @@
 #### Testing Ansible provisioner for terraform
 ####
 
+# Specify the provider and access details
+provider "aws" {
+  region = "${var.aws_region}"
+}
+
 variable "aws_region" {
   description = "AWS region on which we will setup the swarm cluster"
   default = "us-west-2"
@@ -43,10 +48,13 @@ variable "public_vpc_subnet" {
   default = "subnet-0a49acc8f29b21b15"
 }
 
+variable "tag_role_frontend" {
+  default = "frontend_machine"
+}
+
 
 ### security-groups.tf
-resource "aws_security_group" "sgswarm" {
-  name = "sgswarm"
+resource "aws_security_group" "sgswarm" {  
   vpc_id = "${var.aws_lab_vpc}"
   tags {
         Name = "Lab-SwarmSG"
@@ -73,12 +81,6 @@ egress {
   }
 }
 
-### main.tf
-# Specify the provider and access details
-provider "aws" {
-  region = "${var.aws_region}"
-}
-
 resource "aws_instance" "nginx" {
   ami = "${var.aws_ami}"
   instance_type = "${var.instance_type}"
@@ -87,7 +89,7 @@ resource "aws_instance" "nginx" {
   vpc_security_group_ids = ["${aws_security_group.sgswarm.id}"]
   tags {
     Name  = "Centos_Nginx"
-    role = "frontend-machine"
+    role = "frontend_machine"
   }
 }
 
@@ -97,16 +99,21 @@ resource "null_resource" "ecs_hosts" {
   
   connection {
     user = "ec2-user"
-    private_key = "${file("C:/Users/roman_orlovskyi/ssh/keys/WebServer01.pem")}"
+    private_key = "${file("~/.ssh/keys/WebServer01.pem")}"
   }
   provisioner "ansible" {
     plays {
       playbook = {
-        roles_path = ["C:/Users/roman_orlovskyi/Documents/projects/pre-prod/tf-phase3/modules/ecs_cluster/ansible-data/roles"]
-        force_handlers = false
+        file_path = "../modules/ecs_cluster/ansible-data/playbooks/cloudwatch.yml"
+        roles_path = ["../modules/ecs_cluster/ansible-data/roles"]
       }
-      inventory_file = "C:/Users/roman_orlovskyi/Documents/projects/pre-prod/tf-phase3/modules/ecs_cluster/ansible-data/ec2.py"
-      hosts = ["tag_role_frontend-machine"]
+      inventory_file = "../modules/ecs_cluster/ansible-data/ec2.py"
+      hosts = ["tag_role_frontend_machine"]
+
+      extra_vars = {
+        random_string = "WORLD!!!"
+        log_driver = "awslogs"
+      }
     }
   }
 }
